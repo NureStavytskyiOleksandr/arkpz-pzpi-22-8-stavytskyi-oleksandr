@@ -1,1 +1,3 @@
-# arkpz-pzpi-22-8-stavytskyi-oleksandr
+ПЗПІ-22-8
+
+Ставицький Олександр

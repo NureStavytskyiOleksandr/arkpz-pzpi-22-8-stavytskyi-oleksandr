@@ -1,0 +1,1 @@
+# arkpz-pzpi-22-8-stavytskyi-oleksandr

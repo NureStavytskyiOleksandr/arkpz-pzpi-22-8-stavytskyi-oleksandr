@@ -1,0 +1,84 @@
+#Рекомендація 1 - Правила іменування
+#Поганий приклад
+UserName = "John Doe"
+
+def SendWelcomeEmail()
+  # Логіка надсилання листа
+end
+#Гарний приклад
+user_name = "John Doe"
+
+def send_welcome_email
+  # Логіка надсилання листа
+end
+#Поганий приклад
+class userregistration
+  # Логіка класу реєстрації користувача
+end
+#Гарний приклад
+class UserRegistration
+  # Логіка класу реєстрації користувача
+end
+  # Логіка надсилання листа
+end
+
+#Рекомендація 2 - Відступи та форматування
+#Поганий приклад
+def register_user(user_name, email)
+  	# Логіка методу
+  	User.new(user_name, email)
+end
+#Гарний приклад
+def register_user(user_name, email)
+  # Логіка методу
+  User.new(user_name, email)
+end
+
+#Рекомендація 3 - Інтерполяція рядків
+#Поганий приклад
+greeting = "Hello, #{user_name}!"
+#Гарний приклад
+greeting = "Hello, #{user_name}!"
+
+#Рекомендація 4 - Коментарі
+#Поганий приклад
+# Змінна для імені користувача
+user_name = "John"
+#Гарний приклад
+# Метод надсилає привітальний лист новому користувачу
+def send_welcome_email(user)
+  # Логіка для надсилання листа
+end
+
+#Рекомендація 5 - Don`t repeat yourself
+#Поганий приклад
+user1 = User.new("John", "john@example.com")
+user2 = User.new("Jane", "jane@example.com")
+#Гарний приклад
+def create_user(name, email)
+  User.new(name, email)
+end
+
+#Рекомендація 6 - Уникання явних return
+#Поганий приклад
+def user_registered?
+  return user.active
+end
+#Гарний приклад
+def user_registered?
+  user.active
+end
+
+#Рекомендація 7 - Обробка помилок
+#Поганий приклад
+begin
+  user.save!
+rescue
+  puts "An error occurred"
+end
+#Гарний приклад
+begin
+  user.save!
+rescue ActiveRecord::RecordInvalid => e
+  puts "Error: #{e.message}"
+end

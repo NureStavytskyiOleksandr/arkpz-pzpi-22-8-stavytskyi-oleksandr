@@ -211,6 +211,4 @@ First version
 3. Mozilla Developer Network. URL: https://developer.mozilla.org/en-US/docs/Web 
 11
 
-
-
-
+Посилання на відео: https://youtu.be/KXbd5tnNSw4

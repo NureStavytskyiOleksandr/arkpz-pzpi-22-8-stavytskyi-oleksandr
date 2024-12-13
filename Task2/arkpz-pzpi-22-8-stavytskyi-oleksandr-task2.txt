@@ -1,1 +1,217 @@
+МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
 
+Кафедра «Програмної інженерії»
+
+
+
+ЗВІТ
+З Лабораторної роботи № 2
+з дисципліни
+«Аналіз та рефакторинг коду»
+
+
+
+Виконав
+ст. гр. ПЗПІ-22-8
+Ставицький Олександр
+Перевірив
+ст. викладач каф. ПІ
+Сокорчук І. П.
+
+
+
+
+Харків 2024
+1 Вступ
+1.1 Тема
+
+     Розробка бази даних для серверної частини програмної системи та прикладного програмного інтерфейсу (АРІ).
+
+1.2 Мета
+
+     Розробити базу даних для серверної частини програмної системи та прикладного програмного інтерфейсу.
+
+2 Розробка діаграм
+2.1 Розробка UML діаграми прецедентів для серверної частини системи
+
+	Для акторів UML діаграми було обрано звичайного користувача та адміністратора. А для прецедентів обрано реєстрацію, авторизацію, знаходження вільного місця, бронювання місця, а також CRUD операції для усіх можливих таблиць майбутньої бази даних. Тепер розробимо UML діаграму за нашими акторами та прецедентами (див. рис. 2.1).
+
+
+Рис. 2.1 – UML діаграма прецедентів
+2.2 Розробка ER діаграми даних
+
+	Для початку треба спроектувати базу даних, для цього ми розробимо ER діаграму. Для діаграми створено такі таблиці: user_groups, users, parking_groups, parking_slots, bookings (див. рис. 2.2).
+
+
+Рис. 2.2 – ER діаграма даних
+
+3 Розробка бази даних
+3.1 Розроблення бази даних програмної системи
+
+	Для бази даних використовується PostgreSQL та pgAdmin4. Для створення таблиць був написаний спеціальний SQL запит.
+
+CREATE TABLE user_groups (
+	user_group_id SERIAL PRIMARY KEY,р
+	user_group_name VARCHAR(255) NOT NULL,
+	user_group_description TEXT
+);
+
+CREATE TABLE users (
+	user_id SERIAL PRIMARY KEY,
+	username VARCHAR(255) NOT NULL,
+	password VARCHAR(255) NOT NULL,
+	user_group_id INTEGER,
+	FOREIGN KEY (user_group_id) REFERENCES user_groups(user_group_id)
+);
+CREATE TABLE parking_groups (
+	parking_group_id SERIAL PRIMARY KEY,
+	parking_group_name VARCHAR(255) NOT NULL,
+	parking_group_description TEXT,
+	user_group_id INTEGER,
+	FOREIGN KEY (user_group_id) REFERENCES user_groups(user_group_id)
+);
+CREATE TABLE parking_spots (
+	parking_spot_id SERIAL PRIMARY KEY,
+	spot_number VARCHAR(255) NOT NULL,
+	spot_status BOOLEAN NOT NULL,
+	parking_group_id INTEGER,
+	FOREIGN KEY (parking_group_id) REFERENCES parking_groups(parking_group_id)
+);
+CREATE TABLE bookings (
+	booking_id SERIAL PRIMARY KEY,
+	user_id INTEGER,
+	parking_spot_id INTEGER,
+	start_time TIMESTAMP NOT NULL,
+	end_time TIMESTAMP NOT NULL,
+	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	FOREIGN KEY (user_id) REFERENCES users(user_id),
+	FOREIGN KEY (parking_spot_id) REFERENCES parking_spots(parking_spot_id)
+);
+
+3.2 Розробка діаграми структури бази даних
+
+     Після створення бази даних, була розроблена діаграма структури бази даних (див. рис. 3.1). Для цього було використано pgAdmin4.
+     
+     
+     Рис. 3.1 – діаграма структури бази даних
+
+
+     4 Розробка серверної частини
+4.1 Розробка функцій для роботи з базою даних
+
+	Для роботи з базою даних були розроблені наступні функції.
+
+const client = require('./db');
+const bcrypt = require('bcrypt');
+
+const registerUser = async (username, password, userGroupId) => {
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const query = `
+            INSERT INTO users (username, password, user_group_id)
+            VALUES ($1, $2, $3)
+            RETURNING *;
+        `;
+        const values = [username, hashedPassword, userGroupId];
+
+        const res = await client.query(query, values);
+        console.log("Користувач зареєстрований:", res.rows[0]);
+        return res.rows[0];
+    } catch (err) {
+        console.error("Помилка при реєстрації користувача:", err.stack);
+        throw err;
+    }
+};
+
+const loginUser = async (username, password) => {
+    try {
+        const query = `SELECT * FROM users WHERE username = $1;`;
+        const values = [username];
+
+        const res = await client.query(query, values);
+
+        if (res.rows.length === 0) {
+            throw new Error("Користувач не знайдений");
+        }
+
+        const user = res.rows[0];
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            throw new Error("Невірний пароль");
+        }
+
+        console.log("Користувач авторизований:", user);
+        return user; 
+    } catch (err) {
+        console.error("Помилка при авторизації користувача:", err.stack);
+        throw err;
+    }
+}
+
+
+4.2 Розробка АРІ для взаємодії серверної частини з клієнтами.
+
+	Для взаємодії серверної частини з клієнтами був написаний наступний код.
+
+const express = require('express');
+const client = require('./db'); 
+const {registerUser, loginUser } = require('./functions');
+const swaggerJSDoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+
+const app = express();
+app.use(express.json()); 
+
+const swaggerOptions = {
+    definition: {
+        openapi: '3.0.0',
+        info: {
+            title: 'API для роботи з "Програмна система для управління паркуванням"',
+            version: '1.0.0',
+        },
+        servers: [
+            {
+                url: 'http://localhost:3000',
+            },
+        ],
+    },
+    apis: ['./server.js'], 
+};
+
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+app.post('/register', async (req, res) => {
+    const { username, password, userGroupId } = req.body;
+    try {
+      const user = await registerUser(username, password, userGroupId);
+      res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: 'Помилка при реєстрації користувача' });
+    }
+  });
+
+  app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+      const user = await loginUser(username, password);
+      res.status(200).json(user);
+    } catch (err) {
+      res.status(400).json({ error: 'Невірний логін або пароль' });
+    }
+  });
+
+4.3 Створення програмної реалізації розробленого АРІ
+
+	Тепер використовуючи створене АРІ було розроблено програмну реалізацію (див. рис. 4.1).
+
+
+Рис. 4.1 – програмна реалізація для АРІ
+
+5 Висновок
+
+	Під час виконання лабораторної роботи було створено UML діаграму прецедентів для серверної частини, ER діаграму даних. Після чого на основі цих діаграму було створено базу даних для програмної системи. На основі цієї бази даних було створено діаграму структури бази даних. Потім було розроблено функції для роботи з цією базою даних та АРІ для взаємодії серверної частини з клієнтами. Після чого було створено програмну реалізацію розробленого АРІ.
+
+Посилання на відео: https://youtu.be/um9wz1TPQIc 

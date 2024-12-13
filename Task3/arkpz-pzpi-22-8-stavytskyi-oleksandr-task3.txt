@@ -1,1 +1,246 @@
+МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+Кафедра «Програмної інженерії»
+
+
+
+ЗВІТ
+З Лабораторної роботи № 3
+з дисципліни
+«Аналіз та рефакторинг коду»
+
+
+
+Виконав
+ст. гр. ПЗПІ-22-8
+Ставицький Олександр
+Перевірив
+ст. викладач каф. ПІ
+Сокорчук І. П.
+
+
+
+
+Харків 2024
+1 Вступ
+1.1 Тема
+
+     Розробка бізнес-логіки та функцій адміністрування серверної частини програмної системи.
+
+1.2 Мета
+
+     Розробити бізнес-логіку та функції адміністрування серверної частини програмної системи.
+     
+2 Розробка діаграм
+2.1 UML діаграма діяльності для серверної частини
+
+     Було розроблено UML діаграму діяльності для серверної частини (див. рис. 2.1).
+     
+
+Рис. 2.1 - UML діаграма діяльності для серверної частини
+     
+2.2 UML діаграма взаємодії для серверної частини
+	
+	Було розроблено UML діаграму взаємодії для серверної частини (див. рис. 2.2).
+
+
+Рис. 2.2 - UML діаграма взаємодії для серверної частини
+
+3 Розробка програмного коду
+3.1 Розробка бізнес логіки серверної частини
+	
+	Фрагмент розробленого коду для реалізації бізнес логіки проекту:
+
+// Функція для пошуку вільних паркувальних місць
+const findFreeSpots = async (userId) => {
+    const query = `
+        SELECT ps.*
+        FROM parking_spots ps
+        JOIN parking_groups pg ON ps.parking_group_id = pg.parking_group_id
+        JOIN user_groups ug ON pg.user_group_id = ug.user_group_id
+        JOIN users u ON ug.user_group_id = u.user_group_id
+        WHERE u.user_id = $1 AND ps.spot_status = false;
+    `;
+
+    try {
+        const res = await client.query(query, [userId]);
+        if (res.rows.length === 0) {
+            console.log("Вільних паркувальних місць не знайдено");
+            return [];
+        }
+        console.log("Знайдені вільні місця:", res.rows);
+        return res.rows; // Повертає список вільних місць
+    } catch (err) {
+        console.error("Помилка при пошуку вільних місць:", err.stack);
+        throw err;
+    } finally {
+        await client.end();
+    }
+};
+
+// Функція для бронювання паркувального місця
+async function bookParkingSpot(userId, parkingSpotId, startTime, endTime) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+  
+      // Перевірка, чи користувач може забронювати це місце
+      const checkQuery = `
+        SELECT * 
+        FROM parking_spots ps
+        JOIN parking_groups pg ON ps.parking_group_id = pg.parking_group_id
+        JOIN user_groups ug ON pg.user_group_id = ug.user_group_id
+        JOIN users u ON u.user_group_id = ug.user_group_id
+        WHERE ps.parking_spot_id = $1
+          AND u.user_id = $2
+          AND NOT EXISTS (
+              SELECT 1 
+              FROM bookings b 
+              WHERE b.parking_spot_id = ps.parking_spot_id
+                AND b.start_time < $4
+                AND b.end_time > $3
+          );
+      `;
+  
+      const result = await client.query(checkQuery, [
+        parkingSpotId,
+        userId,
+        startTime,
+        endTime,
+      ]);
+  
+      if (result.rows.length === 0) {
+        throw new Error(
+          'Паркувальне місце недоступне або ви не маєте доступу до цього місця.'
+        );
+      }
+  
+      // Бронювання місця
+      const insertQuery = `
+        INSERT INTO bookings (user_id, parking_spot_id, start_time, end_time) 
+        VALUES ($1, $2, $3, $4) RETURNING *;
+      `;
+      const booking = await client.query(insertQuery, [
+        userId,
+        parkingSpotId,
+        startTime,
+        endTime,
+      ]);
+  
+      await client.query('COMMIT');
+      return booking.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+}
+
+
+3.2 Розробка функцій адміністрування серверної частини
+	
+	Фрагмент розробленого коду для реалізації адміністрування серверної частини:
+	
+
+// Функція для створення групи користувачів
+const createUserGroup = async (userGroupName, userGroupDescription) => {
+    const query = `
+        INSERT INTO user_groups (user_group_name, user_group_description)
+        VALUES ($1, $2)
+        RETURNING *;
+    `;
+    const values = [userGroupName, userGroupDescription];
+
+    try {
+        const res = await client.query(query, values);
+        console.log("Група користувачів створена:", res.rows[0]);
+        return res.rows[0]; // Повертаємо створений запис
+    } catch (err) {
+        console.error("Помилка при створенні групи користувачів:", err.stack);
+        throw err; // Передаємо помилку далі для обробки
+    }
+};
+
+// Функція для редагування групи користувачів
+const updateUserGroup = async (userGroupId, userGroupName, userGroupDescription) => {
+    const query = `
+        UPDATE user_groups
+        SET user_group_name = $1, user_group_description = $2
+        WHERE user_group_id = $3
+        RETURNING *;
+    `;
+    const values = [userGroupName, userGroupDescription, userGroupId];
+
+    try {
+        const res = await client.query(query, values);
+        if (res.rows.length === 0) {
+            throw new Error("Групу користувачів з таким ID не знайдено");
+        }
+        console.log("Група користувачів оновлена:", res.rows[0]);
+        return res.rows[0]; // Повертаємо оновлений запис
+    } catch (err) {
+        console.error("Помилка при оновленні групи користувачів:", err.stack);
+        throw err; // Передаємо помилку далі для обробки
+    }
+};
+
+// Функція для видалення групи користувачів
+const deleteUserGroup = async (userGroupId) => {
+    const query = `
+        DELETE FROM user_groups
+        WHERE user_group_id = $1
+        RETURNING *;
+    `;
+    const values = [userGroupId];
+
+    try {
+        const res = await client.query(query, values);
+        if (res.rows.length === 0) {
+            throw new Error("Групу користувачів з таким ID не знайдено");
+        }
+        console.log("Група користувачів видалена:", res.rows[0]);
+        return res.rows[0]; // Повертаємо видалений запис
+    } catch (err) {
+        console.error("Помилка при видаленні групи користувачів:", err.stack);
+        throw err; // Передаємо помилку далі для обробки
+    }
+};
+
+3.3 Використання розроблених функцій в API
+
+     Фрагмент розробленого коду для використання розроблених функцій в API:
+
+  app.get('/find-free-spots/:userId', async (req, res) => {
+    const userId = req.params.userId;
+    try {
+      const spots = await findFreeSpots(userId);
+      if (spots.length === 0) {
+        return res.status(404).json({ message: 'Вільних паркувальних місць не знайдено' });
+      }
+      res.status(200).json(spots);
+    } catch (err) {
+      res.status(500).json({ error: 'Помилка при пошуку вільних місць' });
+    }
+  });
+app.post('/book', async (req, res) => {
+    const { userId, parkingSpotId, startTime, endTime } = req.body;
+  
+    try {
+      const booking = await bookParkingSpot(userId, parkingSpotId, startTime, endTime);
+      res.status(201).json({
+        message: 'Паркувальне місце успішно заброньовано.',
+        booking,
+      });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+4 Висновок
+
+     Під час виконання лабораторної роботи було створено UML діаграму діяльності для серверної частини, UML діаграму взаємодії для серверної частини. Також було розроблено програмний код для бізнес логіки проекту, а також адміністрування серверної частини.
+     
+     Посилання: https://youtu.be/9V2w69QhJv4 
 

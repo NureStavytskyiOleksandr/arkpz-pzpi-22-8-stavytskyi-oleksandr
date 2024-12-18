@@ -1,1 +1,174 @@
+	МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
 
+Кафедра «Програмної інженерії»
+
+
+
+ЗВІТ
+З Лабораторної роботи № 4
+з дисципліни
+«Аналіз та рефакторинг коду»
+
+
+
+Виконав
+ст. гр. ПЗПІ-22-8
+Ставицький Олександр
+Перевірив
+ст. викладач каф. ПІ
+Сокорчук І. П.
+
+
+
+
+Харків 2024
+1 Вступ
+1.1 Тема
+
+     Розробка ІоТ клієнта.
+
+1.2 Мета
+
+     Розробити програмне забезпечення для ІоТ або SmartDevice пристрою.
+
+2 Розробка діаграм
+2.1 UML діаграма прецедентів ІоТ клієнта
+
+	Було створено діаграму прецедентів для ІоТ клієнта (див. рис. 2.1).
+
+
+Рис. 2.1 - UML діаграма прецедентів ІоТ клієнта
+
+2.2 UML діаграма діяльності ІоТ клієнта
+
+     Було створено діаграму діяльності для ІоТ клієнта (див. рис. 2.2).
+ 
+Рис. 2.1 - UML діаграма діяльності ІоТ клієнта
+
+
+3 Розробка ІоТ клієнту
+	3.1 Розробка будови ІоТ пристрою
+
+	Для мікроконтролеру було використано ESP32. А для роботи бізнес логіки було використано ультразвуковий датчик HC-SR04. Також було використано 2 світлодіоди для кращого розуміння, зайняте місце чи ні. Тож все було підключено, та створено ІоТ пристрій (див. рис. 3.1)
+
+
+Рис. 2.1 - ІоТ пристрій
+
+     3.2 Розробка програмного коду для ІоТ пристрою
+     
+     Було написано код, що зможе виконувати всі поставлені задачі. Бізнес логіка зав’язана на правильному розрахунку дистанції до об’єкту. Програмний код ІоТ пристрою винесено в додаток А.
+     
+4 Висновок
+
+     Під час виконання лабораторної роботи було створено UML діаграму прецедентів ІоТ клієнта, UML діаграму діяльності ІоТ клієнта. Після чого було розроблено будову ІоТ пристрою. Після розробки будови було написано програмний код. Після чого ІоТ пристрій був готовий до використання.
+     
+
+     Посилання на відео: https://youtu.be/T2_dq9jBU6s 
+
+
+Додаток А
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <PubSubClient.h> 
+
+int trigPin = 32;
+int echoPin = 22;
+int ledPinGreen = 18;
+int ledPinRed = 19;
+
+const char* ssid = "Wokwi-GUEST";  
+const char* password = ""; 
+
+const char* mqtt_server = "broker.emqx.io"; 
+const int mqtt_port = 1883;
+const char* mqtt_user = ""; 
+const char* mqtt_password = ""; 
+const char* mqtt_topic = "parking/status";  
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void reconnect() {
+
+  while (!client.connected()) {
+
+    if (client.connect("ESP32", mqtt_user, mqtt_password)) {
+
+      client.subscribe(mqtt_topic);
+
+    } else {
+
+      delay(5000);
+    }
+  }
+}
+
+void setup() {
+
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledPinGreen, OUTPUT);
+  pinMode(ledPinRed, OUTPUT);
+
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Підключення до Wi-Fi...");
+  }
+  Serial.println("Підключено до Wi-Fi!");
+
+  client.setServer(mqtt_server, mqtt_port);
+  reconnect();
+}
+
+void loop() {
+
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  unsigned long duration = pulseIn(echoPin, HIGH);
+// БІЗНЕС ЛОГІКА (розрахунок дистанції)
+  long distance = duration * 0.0344 / 2;
+
+  Serial.print("Дистанція: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+
+  bool spotStatus = false;
+  if (distance < 100) {  
+    digitalWrite(ledPinGreen, HIGH); 
+    digitalWrite(ledPinRed, LOW);     
+    spotStatus = true; 
+  } else {
+    digitalWrite(ledPinRed, HIGH);  
+    digitalWrite(ledPinGreen, LOW);
+    spotStatus = false; 
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+      int sensorId = 1; 
+      String payload = "{\"sensor_id\":" + String(sensorId) + ",\"spot_status\":";
+      payload += spotStatus ? "true" : "false";
+      payload += "}";
+
+      client.publish(mqtt_topic, payload.c_str());  
+      Serial.println("Відправка даних...");
+
+  } else {
+      Serial.println("Wi-Fi не підключено!");
+  }
+
+  delay(1000);  
+}

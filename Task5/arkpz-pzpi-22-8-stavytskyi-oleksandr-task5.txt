@@ -23,7 +23,7 @@
 
 
 Харків 2024
-1 Вступ
+1 ВСТУП
 1.1 Тема
 
      Розгортання програмної системи та демонстрація її роботи.
@@ -32,7 +32,7 @@
 
      Розгорнути програму систему та продемонструвати її роботу.
      
-2 Розгортання програмної системи
+2 РОЗГОРТАННЯ ПРОГРАМНОЇ СИСТЕМИ
 2.1 База даних
 	
 	Для зберігання та обробки даних системи було використано базу даних PostgreSQL. Ця база даних забезпечує надійність, високу продуктивність і зручність у роботі з великими обсягами структурованих даних.
@@ -44,7 +44,7 @@
 	Для створення АРІ використовувалися функції написані на JavaScript, які забезпечують обробку HTTPS запитів, взаємодію з базою даних та ІоТ пристроями, а також для керування бізнес логікою системи.
 	Для документування та тестування АРІ використовувався Swagger. Цей інструмент полегшив тестування запитів і зробив АРІ зручним.
 
-2.3 Іот пристрій
+2.3 ІоТ пристрій
 	
 	ІоТ пристрій відіграє ключову роль в цій системі. Ультразвуковий датчик, підключений до контролера, використовується для визначення наявності автомобіля на певному паркувальному місці.
 
@@ -53,8 +53,60 @@
 	Для розробки програмного забезпечення використовувався редактор коду Visual Studio Code. Цей інструмент забезпечив зручне  середовище для написання коду на JavaScript та управління проектом.
 	Також був використаний Git. Це зручна та гнучка система для контролю версій проекту.
 
-3 Висновок
+2.5 Розгортання
+
+	Для розгортання програмної системи мають бути встановлені модулі: Node.js для роботи серверу, Bcrypt для хешування паролів, Swagger для інтерактивної документації, файли functions.js функціями програми та server.js з самим сервером. Для створення бази даних має бути встановлена PostgreSQL та інструмент роботи з базою pgAdmin 4. Щоб створити таблиці бази баних потрібно вписати наданий в Додатку А SQL запит. Після чого ви розставляєте правильно налаштовані ІоТ пристрої, кожен пристрій має мати свій id. Після чого ви запускаєте сервер з файлу server.js, а також запускаєте ІоТ пристрої, які будуть передавати інформацію до бази.
+3 ВИСНОВОК
 
 	Поєднання потужної бази даних PostgreSQL, зручного інтерфейсу pgAdmin, продуктивного серверного середовища Node.js, інтерактивної документації Swagger та точних вимірювань ІоТ пристрою дозволило створити ефективну програмне систему для управління паркуванням.
 
      Посилання на відео: https://youtu.be/E2EPbqHC9uo 
+
+ДОДАТОК А
+     
+     
+     CREATE TABLE user_groups (
+     	user_group_id SERIAL PRIMARY KEY,
+     	user_group_name VARCHAR(255) NOT NULL,
+     	user_group_description TEXT
+     );
+     	
+     CREATE TABLE users (
+     	user_id SERIAL PRIMARY KEY,
+     	username VARCHAR(255) NOT NULL,
+     	password VARCHAR(255) NOT NULL,
+     	user_group_id INTEGER,
+     	FOREIGN KEY (user_group_id) REFERENCES user_groups(user_group_id)
+     );
+     	
+     CREATE TABLE parking_groups (
+     	parking_group_id SERIAL PRIMARY KEY,
+     	parking_group_name VARCHAR(255) NOT NULL,
+     	parking_group_description TEXT,
+     	user_group_id INTEGER,
+     	FOREIGN KEY (user_group_id) REFERENCES user_groups(user_group_id)
+     );
+     	
+     CREATE TABLE parking_spots (
+     	parking_spot_id SERIAL PRIMARY KEY,
+     	spot_number VARCHAR(255) NOT NULL,
+     	sensor_id VARCHAR(255) NOT NULL,
+     	spot_status BOOLEAN NOT NULL,
+     	parking_group_id INTEGER,
+     	FOREIGN KEY (parking_group_id) REFERENCES parking_groups(parking_group_id)
+     );
+     	
+     CREATE TABLE bookings (
+     	booking_id SERIAL PRIMARY KEY,
+     	user_id INTEGER,
+     	parking_spot_id INTEGER,
+     	start_time TIMESTAMP NOT NULL,
+     	end_time TIMESTAMP NOT NULL,
+     	created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     	FOREIGN KEY (user_id) REFERENCES users(user_id),
+     	FOREIGN KEY (parking_spot_id) REFERENCES parking_spots(parking_spot_id)
+     );
+
+
+6
+

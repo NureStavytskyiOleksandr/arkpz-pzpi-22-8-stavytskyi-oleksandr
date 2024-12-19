@@ -8,14 +8,14 @@ int echoPin = 22;
 int ledPinGreen = 18;
 int ledPinRed = 19;
 
-const char* ssid = "Wokwi-GUEST";  
-const char* password = ""; 
+char* ssid = "Wokwi-GUEST";  
+char* password = ""; 
 
-const char* mqtt_server = "broker.emqx.io"; 
-const int mqtt_port = 1883;
-const char* mqtt_user = ""; 
-const char* mqtt_password = ""; 
-const char* mqtt_topic = "parking/status";  
+char* mqtt_server = "broker.emqx.io"; 
+int mqtt_port = 1883;
+char* mqtt_user = ""; 
+char* mqtt_password = ""; 
+char* mqtt_topic = "parking/status";  
 
 
 WiFiClient espClient;
